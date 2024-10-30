@@ -1,0 +1,7 @@
+google-api-python-client==2.149.0
+python-dotenv==1.0.1
+langdetect==1.0.9
+yt-dlp==2024.10.22
+pydub==0.25.1
+openai==1.52.2
+moviepy==1.0.3
