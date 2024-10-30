@@ -3,7 +3,7 @@ from openai import OpenAI
 import os
 import json
 from datetime import datetime
-from .config import OPENAI_API_KEY, get_file_paths
+from .config import OPENAI_API_KEY, get_file_paths, RELEVANCE_LANGUAGE
 
 class Transcriber:
     def __init__(self):
@@ -27,7 +27,7 @@ class Transcriber:
                 response = self.client.audio.transcriptions.create(
                     model="whisper-1",
                     file=audio_file,
-                    language="pt",
+                    language=RELEVANCE_LANGUAGE,
                     response_format="verbose_json",
                     timestamp_granularities=["segment", "word"],
                 )

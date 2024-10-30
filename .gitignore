@@ -47,3 +47,5 @@ ENV/
 # Logs
 *.log
 logs/
+
+*.m4a

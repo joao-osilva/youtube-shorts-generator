@@ -2,10 +2,10 @@ from moviepy.editor import VideoFileClip, CompositeVideoClip, ColorClip
 from moviepy.video.fx.all import resize, crop
 from PIL import Image
 import numpy as np
-from typing import Optional, List
+from typing import Optional, List, Dict
 import os
 from datetime import datetime
-from .config import get_file_paths, CLIPS_DIR
+from .config import get_file_paths, CLIPS_DIR, MAX_CLIP_DURATION, MIN_CLIP_DURATION
 from .schemas import CompleteAnalysis, ShortsSegment
 
 # Update Pillow/PIL constants for newer versions
@@ -76,71 +76,91 @@ class VideoClipper:
     def create_clip(
         self,
         video_id: str,
-        segment: ShortsSegment,
-        index: int
+        segment: dict,
+        clip_number: int
     ) -> Optional[str]:
-        """Create a single clip from a segment"""
+        """Create a single vertical format clip"""
+        file_paths = get_file_paths(video_id)
+        
         try:
-            file_paths = get_file_paths(video_id)
-            source_path = file_paths['video']
+            # Load video
+            video = VideoFileClip(file_paths['video'])
+            
+            # Validate timestamps against actual video duration
+            video_duration = video.duration
+            t_start = float(segment['start_time'])
+            t_end = float(segment['end_time'])
+            
+            # Validate timestamps
+            if not (0 <= t_start < video_duration and 
+                   t_start < t_end <= video_duration and 
+                   MIN_CLIP_DURATION <= (t_end - t_start) <= MAX_CLIP_DURATION):
+                print(f"Invalid clip timestamps: start={t_start}, end={t_end}, duration={video_duration}")
+                video.close()
+                return None
+
+            # Extract clip
+            clip = video.subclip(t_start, t_end)
+            
+            # Convert to vertical format
+            vertical_clip = self.create_vertical_clip(clip)
             
             # Use the exact title_suggestion for the filename
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            clip_filename = f"{segment.title_suggestion}.mp4"
+            clip_filename = f"{segment['title_suggestion']}.mp4"
             clip_path = os.path.join(self.clips_dir, clip_filename)
             
             # If file exists, add timestamp
             if os.path.exists(clip_path):
-                clip_filename = f"{segment.title_suggestion}_{timestamp}.mp4"
+                clip_filename = f"{segment['title_suggestion']}_{timestamp}.mp4"
                 clip_path = os.path.join(self.clips_dir, clip_filename)
             
-            # Load video and create clip
-            with VideoFileClip(source_path) as video:
-                # Extract clip using segment timestamps
-                clip = video.subclip(segment.start_time, segment.end_time)
-                
-                # Convert to vertical format
-                vertical_clip = self.create_vertical_clip(clip)
-                
-                # Write clip to file
-                vertical_clip.write_videofile(
-                    clip_path,
-                    codec='libx264',
-                    audio_codec='aac',
-                    temp_audiofile=f'temp-audio-{video_id}-{index}.m4a',
-                    remove_temp=True,
-                    threads=4,
-                    preset='ultrafast'  # For development; use 'medium' for production
-                )
-                
+            # Write clip to file
+            vertical_clip.write_videofile(
+                clip_path,
+                codec='libx264',
+                audio_codec='aac',
+                temp_audiofile=f'temp-audio-{video_id}-{clip_number}.m4a',
+                remove_temp=True,
+                threads=4,
+                preset='ultrafast'  # For development; use 'medium' for production
+            )
+            
             return clip_path
             
         except Exception as e:
-            print(f"Error creating clip {index} for video {video_id}: {str(e)}")
+            print(f"Error creating clip {clip_number} for video {video_id}: {str(e)}")
             return None
+        finally:
+            # Ensure video is closed
+            if 'video' in locals():
+                video.close()
 
-    def process_analysis(self, video_id: str, analysis: CompleteAnalysis) -> List[dict]:
-        """Process all segments from an analysis"""
+    def process_analysis(self, video_id: str, analysis_data: CompleteAnalysis) -> List[Dict]:
+        """Process analysis data and create all clips"""
         clips_info = []
         
-        for i, segment in enumerate(analysis.analysis.shorts_suggestions, 1):
-            print(f"\nCreating clip {i}/{len(analysis.analysis.shorts_suggestions)}")
-            clip_path = self.create_clip(video_id, segment, i)
+        try:
+            # Access the shorts_suggestions through the Pydantic model
+            suggestions = analysis_data.analysis.shorts_suggestions
             
-            if clip_path:
-                clip_info = {
-                    'clip_path': clip_path,
-                    'segment': segment.model_dump(),
-                    'index': i,
-                    'duration': segment.end_time - segment.start_time,
-                    'created_at': datetime.utcnow().isoformat(),
-                    'format': {
-                        'width': self.target_width,
-                        'height': self.target_height,
-                        'aspect_ratio': '9:16'
-                    }
-                }
-                clips_info.append(clip_info)
-                print(f"Clip {i} created successfully: {clip_path}")
+            for i, segment in enumerate(suggestions, 1):
+                print(f"\nCreating clip {i}/{len(suggestions)}")
+                
+                # Convert Pydantic model to dict for processing
+                segment_dict = segment.model_dump()
+                
+                clip_path = self.create_clip(video_id, segment_dict, i)
+                if clip_path:
+                    clips_info.append({
+                        'clip_number': i,
+                        'clip_path': clip_path,
+                        'segment': segment_dict,
+                        'created_at': datetime.utcnow().isoformat()
+                    })
+                
+            return clips_info
             
-        return clips_info
+        except Exception as e:
+            print(f"Error processing clips for video {video_id}: {str(e)}")
+            return clips_info

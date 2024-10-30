@@ -40,19 +40,54 @@ youtube-shorts-generator/
 
 ## Configuration ⚙️
 
-1. Create a `.env` file in the root directory:
+Create a `.env` file in the root directory with the following options:
+
 ```env
+# Required API Keys
 OPENAI_API_KEY=your_openai_api_key_here
 YOUTUBE_API_KEY=your_youtube_api_key_here
-MAX_RESULTS=2
-REGION_CODE=BR
+
+# YouTube Search Parameters (optional, showing defaults)
+MAX_RESULTS=2          # Number of videos to process
+REGION_CODE=US         # Country code for video search
+SEARCH_DAYS=1          # Days to look back for videos
+RELEVANCE_LANGUAGE=en  # Language for content (possible values: 'en' or 'pt')
+SEARCH_QUERY=          # Optional search query (e.g., "trending tech")
+MIN_VIEW_COUNT=1000    # Minimum view count for video processing
+
+# Video Processing Parameters (optional, showing defaults)
+MAX_VIDEO_DURATION=1200  # Maximum source video duration (20 minutes)
+MIN_VIDEO_DURATION=120   # Minimum source video duration (2 minutes)
+
+# Shorts/Clips Parameters (optional, showing defaults)
+MAX_CLIP_DURATION=60     # Maximum clip duration
+MIN_CLIP_DURATION=15     # Minimum clip duration
+MAX_CLIPS_PER_VIDEO=5    # Maximum clips per video
 ```
 
-2. The application will automatically:
-   - Fetch the top videos from YouTube based on your configuration
-   - Process videos from the previous day
-   - Use the specified region code (default: BR)
-   - Process the number of videos defined in MAX_RESULTS
+### Language Settings
+
+The tool supports two languages and validates content accordingly:
+- `en`: English (default)
+  - Validates that video titles are in English
+  - Generates English titles and tags
+  - Transcribes content in English
+- `pt`: Brazilian Portuguese
+  - Validates that video titles are in Portuguese
+  - Generates Brazilian Portuguese titles and tags
+  - Transcribes content in Portuguese
+
+Videos with titles in different languages than specified in `RELEVANCE_LANGUAGE` will be automatically filtered out.
+
+Set your preferred language using the `RELEVANCE_LANGUAGE` parameter in the `.env` file. If an invalid language is provided, the tool will default to English.
+
+The application will:
+- Fetch videos based on region (default: US) and language (default: en)
+- Filter by optional search query if provided
+- Process videos between 2-20 minutes in length
+- Process videos from the specified time range
+- Create clips between 15-60 seconds
+- Generate up to 5 clips per video
 
 ## How It Works 🔄
 
