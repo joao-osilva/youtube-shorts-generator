@@ -163,11 +163,4 @@ Feel free to:
 
 ## License 📄
 
-[Your chosen license]
-
-## Acknowledgments 🙏
-
-- OpenAI for GPT API
-- Whisper for transcription
-- yt-dlp for video downloads
-- MoviePy for video processing
+MIT License
